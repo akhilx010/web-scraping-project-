@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+scraper.db
+scraper.log
+exports/
+*.egg-info/
+.venv/
+venv/
+.env
+api_out.log
+api_err.log

@@ -10,10 +10,11 @@ from fastapi.staticfiles import StaticFiles
 from scraper.config import SiteProfile
 from scraper.core import Scraper
 from scraper.exporter import export_csv
-from scraper.logconf import setup_logging
+from scraper.logconf import setup_logging, get_logger
 from scraper.storage import Storage
 
 setup_logging()
+log = get_logger("api")
 app = FastAPI(title="Ethical Scraper API", version="1.0.0")
 storage = Storage()
 
@@ -31,10 +32,36 @@ def list_items(
     source: str | None = None,
     category: str | None = None,
     search: str | None = None,
-    limit: int = Query(100, le=1000),
-    offset: int = 0,
+    limit: int = Query(100, le=1000, ge=1),
+    offset: int = Query(0, ge=0),
 ):
-    return {"total": storage.count(), "items": storage.query(source, category, search, limit, offset)}
+    try:
+        return {"total": storage.count(), "items": storage.query(source, category, search, limit, offset)}
+    except Exception as exc:
+        log.exception("Failed to list items")
+        raise HTTPException(500, f"Database error: {exc}")
+
+
+@app.get("/search")
+def search(q: str = Query(..., min_length=1), limit: int = Query(50, le=200)):
+    """Full-text search over titles and categories."""
+    try:
+        results = storage.query(search=q, limit=limit)
+        return {"query": q, "count": len(results), "results": results}
+    except Exception as exc:
+        log.exception("Search failed")
+        raise HTTPException(500, f"Search error: {exc}")
+
+
+@app.get("/latest")
+def latest(limit: int = Query(20, le=100)):
+    """Most recently scraped items."""
+    try:
+        results = storage.query(limit=limit)
+        return {"count": len(results), "results": results}
+    except Exception as exc:
+        log.exception("Latest query failed")
+        raise HTTPException(500, f"Database error: {exc}")
 
 
 @app.post("/api/scrape")
@@ -56,7 +83,11 @@ def trigger_scrape(profile_path: str):
 
 @app.get("/api/export.csv")
 def download_csv():
-    rows = storage.all_rows()
+    try:
+        rows = storage.all_rows()
+    except Exception as exc:
+        log.exception("Export failed")
+        raise HTTPException(500, f"Database error: {exc}")
     if not rows:
         raise HTTPException(404, "No data to export")
     path = export_csv(rows, "exports/export.csv")
@@ -65,7 +96,11 @@ def download_csv():
 
 @app.get("/api/stats")
 def stats():
-    rows = storage.all_rows()
+    try:
+        rows = storage.all_rows()
+    except Exception as exc:
+        log.exception("Stats failed")
+        raise HTTPException(500, f"Database error: {exc}")
     by_source: dict[str, int] = {}
     by_category: dict[str, int] = {}
     for r in rows:
