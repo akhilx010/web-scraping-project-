@@ -67,17 +67,38 @@ Then run `python main.py scrape profiles/mysite.json`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/items?search=&category=&source=&limit=&offset=` | List items |
+| GET | `/` | Google-style search UI |
+| GET | `/search?q=...&limit=` | Full-text search over titles & categories |
+| GET | `/latest?limit=` | Most recently scraped items |
+| GET | `/api/items?search=&category=&source=&limit=&offset=` | List/filter items |
 | POST | `/api/scrape?profile_path=profiles/books.json` | Trigger a scrape |
 | GET | `/api/export.csv` | Download all data as CSV |
 | GET | `/api/stats` | Counts by source/category |
-| GET | `/` | Web UI |
+| GET | `/docs` | Interactive OpenAPI docs |
 
 ## Ethics
 
 - Keep `rate_limit_seconds` reasonable (≥ 2s).
 - Only scrape sites whose `robots.txt`/terms allow it.
 - Identify your bot honestly in `user_agent`.
+
+## Project structure
+
+```
+├── main.py            CLI entry (scrape / schedule / export / serve)
+├── api.py             FastAPI app — REST endpoints + web UI
+├── scraper/           core package
+│   ├── config.py      site profiles (JSON-driven)
+│   ├── core.py        fetching, retries, pagination, parsing
+│   ├── storage.py     SQLite persistence + queries
+│   ├── exporter.py    CSV export
+│   ├── scheduler.py   APScheduler jobs
+│   └── logconf.py     logging configuration
+├── profiles/          per-site configs (books.json, ...)
+├── static/            Google-style search UI
+├── exports/           CSV output
+└── tests/             pytest suite
+```
 
 ## Tests
 
